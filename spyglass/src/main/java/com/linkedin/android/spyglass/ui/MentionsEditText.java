@@ -14,7 +14,6 @@
 
 package com.linkedin.android.spyglass.ui;
 
-import android.annotation.TargetApi;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
@@ -51,6 +50,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.linkedin.android.spyglass.R;
+import com.linkedin.android.spyglass.mentions.MentionAvatarSpan;
+import com.linkedin.android.spyglass.mentions.MentionAvatarSpanFactory;
 import com.linkedin.android.spyglass.mentions.MentionSpan;
 import com.linkedin.android.spyglass.mentions.MentionSpanConfig;
 import com.linkedin.android.spyglass.mentions.Mentionable;
@@ -96,6 +97,7 @@ public class MentionsEditText extends EditText implements TokenSource {
 
     private MentionSpanFactory mentionSpanFactory;
     private MentionSpanConfig mentionSpanConfig;
+    private MentionAvatarSpanFactory avatarMentionSpanFactory;
     private boolean isLongPressed;
     private CheckLongClickRunnable longClickRunnable;
 
@@ -1007,19 +1009,46 @@ public class MentionsEditText extends EditText implements TokenSource {
     private void insertMentionInternal(@NonNull Mentionable mention, @NonNull Editable text, int start, int end) {
         // Insert the span into the editor
         MentionSpan mentionSpan = mentionSpanFactory.createMentionSpan(mention, mentionSpanConfig);
-        String name = mention.getSuggestiblePrimaryText();
 
-        mBlockCompletion = true;
-        text.replace(start, end, name);
-        int endOfMention = start + name.length();
-        text.setSpan(mentionSpan, start, endOfMention, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        Selection.setSelection(text, endOfMention);
-        ensureMentionSpanIntegrity(text);
-        mBlockCompletion = false;
+        if (avatarMentionSpanFactory != null) {
+            MentionAvatarSpan mentionAvatarSpan = avatarMentionSpanFactory.createAvatarMentionSpan(mention);
 
-        // Notify listeners of added mention
-        if (mMentionWatchers.size() > 0) {
-            notifyMentionAddedWatchers(mention, text.toString(), start, endOfMention);
+            String name = mention.getSuggestiblePrimaryText();
+
+            mBlockCompletion = true;
+
+            text.replace(start, end, name);
+
+            text.insert(start, "@");
+            text.setSpan(mentionAvatarSpan, start, start + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+            int endOfMention = start + name.length() + 1;
+            text.setSpan(mentionSpan, start, endOfMention, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            Selection.setSelection(text, endOfMention);
+
+            // TODO: refactor ensureMentionSpanIntegrity to detect avatar span
+//            ensureMentionSpanIntegrity(text);
+            mBlockCompletion = false;
+
+            if (mMentionWatchers.size() > 0) {
+                notifyMentionAddedWatchers(mention, text.toString(), start, endOfMention);
+            }
+
+        } else {
+            String name = mention.getSuggestiblePrimaryText();
+
+            mBlockCompletion = true;
+
+            text.replace(start, end, name);
+            int endOfMention = start + name.length();
+            text.setSpan(mentionSpan, start, endOfMention, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            Selection.setSelection(text, endOfMention);
+            ensureMentionSpanIntegrity(text);
+            mBlockCompletion = false;// Notify listeners of added mention
+
+            if (mMentionWatchers.size() > 0) {
+                notifyMentionAddedWatchers(mention, text.toString(), start, endOfMention);
+            }
         }
 
         // Hide the suggestions and clear adapter
@@ -1341,6 +1370,10 @@ public class MentionsEditText extends EditText implements TokenSource {
      */
     public void setMentionSpanFactory(@NonNull final MentionSpanFactory factory) {
         mentionSpanFactory = factory;
+    }
+
+    public void setAvatarMentionSpanFactory(@NonNull final MentionAvatarSpanFactory factory) {
+        avatarMentionSpanFactory = factory;
     }
 
     /**

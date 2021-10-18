@@ -14,6 +14,10 @@
 
 package com.linkedin.android.spyglass.sample.samples;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +29,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.linkedin.android.spyglass.mentions.MentionAvatarSpan;
+import com.linkedin.android.spyglass.mentions.Mentionable;
 import com.linkedin.android.spyglass.sample.R;
 import com.linkedin.android.spyglass.sample.data.models.Person;
 import com.linkedin.android.spyglass.suggestions.SuggestionsResult;
@@ -35,6 +41,7 @@ import com.linkedin.android.spyglass.tokenization.QueryToken;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizer;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizerConfig;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
+import com.linkedin.android.spyglass.mentions.MentionAvatarSpanFactory;
 import com.linkedin.android.spyglass.ui.MentionsEditText;
 
 import java.util.ArrayList;
@@ -75,7 +82,67 @@ public class GridMentions extends AppCompatActivity implements QueryTokenReceive
         editor.setSuggestionsVisibilityManager(this);
         editor.setHint(getResources().getString(R.string.type_person));
 
+        editor.setAvatarMentionSpanFactory(new AvatarSpanFactory(this));
+
+
         people = new Person.PersonLoader(getResources());
+    }
+
+    class AvatarSpanFactory extends MentionAvatarSpanFactory {
+
+        private Context context;
+
+        AvatarSpanFactory(Context context) {
+            this.context = context;
+        }
+
+        @Override
+        public MentionAvatarSpan createAvatarMentionSpan(@NonNull Mentionable mention) {
+            return new AvatarSpan(context, R.drawable.ic_android_black_24dp);
+        }
+    }
+
+    class AvatarSpan extends MentionAvatarSpan {
+
+        public AvatarSpan(@NonNull Context context, @NonNull Bitmap bitmap) {
+            super(context, bitmap);
+        }
+
+        public AvatarSpan(@NonNull Context context, @NonNull Bitmap bitmap, int verticalAlignment) {
+            super(context, bitmap, verticalAlignment);
+        }
+
+        public AvatarSpan(@NonNull Drawable drawable) {
+            super(drawable);
+        }
+
+        public AvatarSpan(@NonNull Drawable drawable, int verticalAlignment) {
+            super(drawable, verticalAlignment);
+        }
+
+        public AvatarSpan(@NonNull Drawable drawable, @NonNull String source) {
+            super(drawable, source);
+        }
+
+        public AvatarSpan(@NonNull Drawable drawable, @NonNull String source, int verticalAlignment) {
+            super(drawable, source, verticalAlignment);
+        }
+
+        public AvatarSpan(@NonNull Context context, @NonNull Uri uri) {
+            super(context, uri);
+        }
+
+        public AvatarSpan(@NonNull Context context, @NonNull Uri uri, int verticalAlignment) {
+            super(context, uri, verticalAlignment);
+        }
+
+        public AvatarSpan(@NonNull Context context, int resourceId) {
+            super(context, resourceId);
+        }
+
+        public AvatarSpan(@NonNull Context context, int resourceId, int verticalAlignment) {
+            super(context, resourceId, verticalAlignment);
+        }
     }
 
     // --------------------------------------------------
