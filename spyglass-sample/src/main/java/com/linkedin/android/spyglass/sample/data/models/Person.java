@@ -86,7 +86,7 @@ public class Person implements Mentionable {
     public MentionDeleteStyle getDeleteStyle() {
         // People support partial deletion
         // i.e. "John Doe" -> DEL -> "John" -> DEL -> ""
-        return MentionDeleteStyle.PARTIAL_NAME_DELETE;
+        return MentionDeleteStyle.FULL_DELETE;
     }
 
     @Override

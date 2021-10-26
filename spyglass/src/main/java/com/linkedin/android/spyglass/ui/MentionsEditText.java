@@ -82,6 +82,7 @@ public class MentionsEditText extends EditText implements TokenSource {
 
     private static final String KEY_MENTION_SPANS = "mention_spans";
     private static final String KEY_MENTION_SPAN_STARTS = "mention_span_starts";
+    private static final String KEY_MENTION_AVATAR_SPAN_STARTS = "mention_avatar_span_starts";
 
     private Tokenizer mTokenizer;
     private QueryTokenReceiver mQueryTokenReceiver;
@@ -305,6 +306,10 @@ public class MentionsEditText extends EditText implements TokenSource {
                 for (MentionSpan mentionSpan : span) {
                     text.removeSpan(mentionSpan);
                 }
+                MentionAvatarSpan[] avatarSpans = text.getSpans(min, max, MentionAvatarSpan.class);
+                for (MentionAvatarSpan avatarSpan: avatarSpans) {
+                    text.removeSpan(avatarSpan);
+                }
                 text.delete(min, max);
                 return true;
             case android.R.id.copy:
@@ -338,6 +343,21 @@ public class MentionsEditText extends EditText implements TokenSource {
             }
             intent.putExtra(KEY_MENTION_SPAN_STARTS, spanStart);
         }
+
+        MentionAvatarSpan[] avatarSpans = text.getSpans(start, end, MentionAvatarSpan.class);
+        if (avatarSpans.length > 0) {
+
+            if (intent == null) {
+                intent = new Intent();
+            }
+
+            int[] spanStart = new int[avatarSpans.length];
+            for (int i = 0; i < avatarSpans.length; i++) {
+                spanStart[i] = copiedText.getSpanStart(avatarSpans[i]);
+            }
+            intent.putExtra(KEY_MENTION_AVATAR_SPAN_STARTS, spanStart);
+        }
+
         saveToClipboard(copiedText, intent);
     }
 
@@ -354,6 +374,7 @@ public class MentionsEditText extends EditText implements TokenSource {
                 String selectedText = item.coerceToText(getContext()).toString();
                 MentionsEditable text = getMentionsText();
                 MentionSpan[] spans = text.getSpans(min, max, MentionSpan.class);
+                // TODO: do checks for avatar mention span too
                 /*
                  * We need to remove the span between min and max. This is required because in
                  * {@link SpannableStringBuilder#replace(int, int, CharSequence)} existing spans within
@@ -391,12 +412,24 @@ public class MentionsEditText extends EditText implements TokenSource {
                     continue;
                 }
 
+                int[] avatarSpanStart = bundle.getIntArray(KEY_MENTION_AVATAR_SPAN_STARTS);
+
                 // Set the MentionSpan in text.
                 SpannableStringBuilder s = new SpannableStringBuilder(selectedText);
                 for (int j = 0; j < parcelables.length; j++) {
                     MentionSpan mentionSpan = (MentionSpan) parcelables[j];
-                    s.setSpan(mentionSpan, spanStart[j], spanStart[j] + mentionSpan.getDisplayString().length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                    if (avatarMentionSpanFactory != null) {
+                        s.setSpan(mentionSpan, spanStart[j], spanStart[j] + mentionSpan.getDisplayString().length() + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        // recreate avatar mention span
+                        if (avatarSpanStart.length == spanStart.length) {
+                            s.setSpan(avatarMentionSpanFactory.createAvatarMentionSpan(mentionSpan.getMention()), avatarSpanStart[j], avatarSpanStart[j] + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        }
+                    } else {
+                        s.setSpan(mentionSpan, spanStart[j], spanStart[j] + mentionSpan.getDisplayString().length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
                 }
+
                 text.replace(min, max, s);
             }
         }
@@ -561,7 +594,8 @@ public class MentionsEditText extends EditText implements TokenSource {
 
             // If necessary, temporarily remove any MentionSpans that could potentially interfere with composing text
             if (!changed) {
-                replaceMentionSpansWithPlaceholdersAsNecessary(text);
+                // TODO: fix to account for avatar span
+//                replaceMentionSpansWithPlaceholdersAsNecessary(text);
             }
 
             // Call any watchers for text changes
@@ -606,7 +640,8 @@ public class MentionsEditText extends EditText implements TokenSource {
 
             // Some mentions may have been replaced by placeholders temporarily when altering the text, reinsert the
             // mention spans now
-            replacePlaceholdersWithCorrespondingMentionSpans(text);
+            // TODO: fix to account for avatar span
+//            replacePlaceholdersWithCorrespondingMentionSpans(text);
 
             // Ensure that the text in all the MentionSpans remains unchanged and valid
             ensureMentionSpanIntegrity(text);
@@ -842,24 +877,28 @@ public class MentionsEditText extends EditText implements TokenSource {
                 case PARTIAL:
                 case FULL:
                     String name = span.getDisplayString();
-                    if (!name.contentEquals(spanText) && start >= 0 && start < end && end <= text.length()) {
-                        // Mention display name does not match what is being shown,
-                        // replace text in span with proper display name
-                        int cursor = getSelectionStart();
-                        int diff = cursor - end;
-                        text.removeSpan(span);
-                        text.replace(start, end, name);
-                        if (diff > 0 && start + end + diff < text.length()) {
-                            text.replace(start + end, start + end + diff, "");
+                    if (avatarMentionSpanFactory != null) {
+                        // TODO:
+                    } else {
+                        if (!name.contentEquals(spanText) && start >= 0 && start < end && end <= text.length()) {
+                            // Mention display name does not match what is being shown,
+                            // replace text in span with proper display name
+                            int cursor = getSelectionStart();
+                            int diff = cursor - end;
+                            text.removeSpan(span);
+                            text.replace(start, end, name);
+                            if (diff > 0 && start + end + diff < text.length()) {
+                                text.replace(start + end, start + end + diff, "");
+                            }
+                            if (name.length() > 0) {
+                                text.setSpan(span, start, start + name.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            }
+                            // Notify for partially deleted mentions.
+                            if (mMentionWatchers.size() > 0 && displayMode == Mentionable.MentionDisplayMode.PARTIAL) {
+                                notifyMentionPartiallyDeletedWatchers(span.getMention(), name, start, end);
+                            }
+                            spanAltered = true;
                         }
-                        if (name.length() > 0) {
-                            text.setSpan(span, start, start + name.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        }
-                        // Notify for partially deleted mentions.
-                        if (mMentionWatchers.size() > 0 && displayMode == Mentionable.MentionDisplayMode.PARTIAL) {
-                            notifyMentionPartiallyDeletedWatchers(span.getMention(), name, start, end);
-                        }
-                        spanAltered = true;
                     }
                     break;
 
@@ -1027,7 +1066,7 @@ public class MentionsEditText extends EditText implements TokenSource {
             Selection.setSelection(text, endOfMention);
 
             // TODO: refactor ensureMentionSpanIntegrity to detect avatar span
-//            ensureMentionSpanIntegrity(text);
+            ensureMentionSpanIntegrity(text);
             mBlockCompletion = false;
 
             if (mMentionWatchers.size() > 0) {
@@ -1173,6 +1212,10 @@ public class MentionsEditText extends EditText implements TokenSource {
         MentionSpan[] spans = sb.getSpans(0, sb.length(), MentionSpan.class);
         for (MentionSpan span: spans) {
             sb.removeSpan(span);
+        }
+        MentionAvatarSpan[] avatarSpans = text.getSpans(0, sb.length(), MentionAvatarSpan.class);
+        for (MentionAvatarSpan avatarSpan: avatarSpans) {
+            sb.removeSpan(avatarSpan);
         }
         return sb;
     }

@@ -4,12 +4,14 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.text.style.ImageSpan;
+import androidx.core.graphics.drawable.DrawableKt;
 
 import androidx.annotation.NonNull;
 
 public class MentionAvatarSpan extends ImageSpan {
-
 
     public MentionAvatarSpan(@NonNull Context context, @NonNull Bitmap bitmap) {
         super(context, bitmap);
@@ -51,4 +53,8 @@ public class MentionAvatarSpan extends ImageSpan {
         super(context, resourceId, verticalAlignment);
     }
 
+
+    public MentionAvatarSpan(Parcel in) {
+        super((Bitmap) in.readParcelable(Bitmap.class.getClassLoader()));
+    }
 }

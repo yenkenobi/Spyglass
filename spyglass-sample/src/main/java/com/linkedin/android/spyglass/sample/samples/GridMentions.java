@@ -57,7 +57,7 @@ public class GridMentions extends AppCompatActivity implements QueryTokenReceive
     private static final WordTokenizerConfig tokenizerConfig = new WordTokenizerConfig
             .Builder()
             .setWordBreakChars(", ")
-            .setExplicitChars("")
+            .setExplicitChars("@")
             .setMaxNumKeywords(2)
             .setThreshold(1)
             .build();
