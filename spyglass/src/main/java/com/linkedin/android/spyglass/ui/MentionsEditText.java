@@ -594,8 +594,7 @@ public class MentionsEditText extends EditText implements TokenSource {
 
             // If necessary, temporarily remove any MentionSpans that could potentially interfere with composing text
             if (!changed) {
-                // TODO: fix to account for avatar span
-//                replaceMentionSpansWithPlaceholdersAsNecessary(text);
+                replaceMentionSpansWithPlaceholdersAsNecessary(text);
             }
 
             // Call any watchers for text changes
@@ -640,8 +639,7 @@ public class MentionsEditText extends EditText implements TokenSource {
 
             // Some mentions may have been replaced by placeholders temporarily when altering the text, reinsert the
             // mention spans now
-            // TODO: fix to account for avatar span
-//            replacePlaceholdersWithCorrespondingMentionSpans(text);
+            replacePlaceholdersWithCorrespondingMentionSpans(text);
 
             // Ensure that the text in all the MentionSpans remains unchanged and valid
             ensureMentionSpanIntegrity(text);
@@ -770,6 +768,11 @@ public class MentionsEditText extends EditText implements TokenSource {
                 editable.removeSpan(span);
             }
         }
+
+        MentionAvatarSpan[] mentionAvatarSpansInCurrentWord = editable.getSpans(wordStart, index, MentionAvatarSpan.class);
+        for (MentionAvatarSpan span : mentionAvatarSpansInCurrentWord) {
+            editable.removeSpan(span);
+        }
     }
 
     /**
@@ -844,11 +847,24 @@ public class MentionsEditText extends EditText implements TokenSource {
     private void replacePlaceholdersWithCorrespondingMentionSpans(@NonNull Editable text) {
         PlaceholderSpan[] tempSpans = text.getSpans(0, text.length(), PlaceholderSpan.class);
         for (PlaceholderSpan span : tempSpans) {
-            int spanStart = text.getSpanStart(span);
-            String mentionDisplayString = span.holder.getDisplayString();
-            int end = Math.min(spanStart + mentionDisplayString.length(), text.length());
-            text.replace(spanStart, end, mentionDisplayString);
-            text.setSpan(span.holder, spanStart, spanStart + mentionDisplayString.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+            if (avatarMentionSpanFactory == null) {
+
+                int spanStart = text.getSpanStart(span);
+                String mentionDisplayString = span.holder.getDisplayString();
+                int end = Math.min(spanStart + mentionDisplayString.length(), text.length());
+                text.replace(spanStart, end, mentionDisplayString);
+                text.setSpan(span.holder, spanStart, spanStart + mentionDisplayString.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+            } else {
+                int spanStart = text.getSpanStart(span);
+                String mentionDisplayString = "@" + span.holder.getDisplayString();
+                int end = Math.min(spanStart + mentionDisplayString.length(), text.length());
+                text.replace(spanStart, end, mentionDisplayString);
+                text.setSpan(avatarMentionSpanFactory.createAvatarMentionSpan(span.holder.getMention()), spanStart, spanStart + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                text.setSpan(span.holder, spanStart, spanStart + mentionDisplayString.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+
             text.removeSpan(span);
         }
     }
